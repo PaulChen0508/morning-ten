@@ -1,6 +1,6 @@
 # 晨间十条 · Morning Ten
 
-A private backup and development repository for the macOS morning news reader.
+Backup and development repository for the Morning Ten macOS news reader.
 
 ## Original version
 
