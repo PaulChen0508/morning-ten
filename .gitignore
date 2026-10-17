@@ -1,0 +1,26 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+*secret*
+*credential*
+*token*
+*.key
+*.pem
+*.p12
+*.mobileprovision
+*.log
+private/
+private-backup*/
+news.json
+settings.json
+preferences.json
+*.plist.local
+Library/
+Application Support/
+.build/
+build/
+dist/
+.swiftpm/
+node_modules/
+artifacts/
