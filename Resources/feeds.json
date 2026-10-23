@@ -1,0 +1,406 @@
+{
+  "categories": [
+    {
+      "id": "visa",
+      "title": "留学与签证",
+      "icon": "airplane.departure"
+    },
+    {
+      "id": "ai",
+      "title": "AI 与大模型",
+      "icon": "sparkles"
+    },
+    {
+      "id": "technology",
+      "title": "科技与数码",
+      "icon": "desktopcomputer"
+    },
+    {
+      "id": "world",
+      "title": "国际大事",
+      "icon": "globe.asia.australia"
+    },
+    {
+      "id": "us",
+      "title": "美国新闻",
+      "icon": "building.columns"
+    },
+    {
+      "id": "china",
+      "title": "中国新闻",
+      "icon": "globe.asia.australia.fill"
+    },
+    {
+      "id": "business",
+      "title": "财经与商业",
+      "icon": "briefcase"
+    },
+    {
+      "id": "economy",
+      "title": "宏观经济",
+      "icon": "chart.bar.xaxis"
+    },
+    {
+      "id": "markets",
+      "title": "金融与市场",
+      "icon": "chart.line.uptrend.xyaxis"
+    },
+    {
+      "id": "security",
+      "title": "网络安全",
+      "icon": "lock.shield"
+    },
+    {
+      "id": "climate",
+      "title": "环境与气候",
+      "icon": "leaf",
+      "keywords": [
+        "climate change",
+        "global warming",
+        "气候变化"
+      ]
+    },
+    {
+      "id": "energy",
+      "title": "能源",
+      "icon": "bolt"
+    },
+    {
+      "id": "politics",
+      "title": "政治与公共政策",
+      "icon": "building.columns.fill"
+    },
+    {
+      "id": "culture",
+      "title": "文化与艺术",
+      "icon": "paintpalette",
+      "keywords": [
+        "arts",
+        "museum",
+        "cultural",
+        "艺术",
+        "文化"
+      ]
+    },
+    {
+      "id": "travel",
+      "title": "旅行",
+      "icon": "suitcase.rolling"
+    },
+    {
+      "id": "entertainment",
+      "title": "娱乐与音乐",
+      "icon": "music.note"
+    },
+    {
+      "id": "gaming",
+      "title": "游戏",
+      "icon": "gamecontroller"
+    },
+    {
+      "id": "sports",
+      "title": "体育",
+      "icon": "sportscourt"
+    },
+    {
+      "id": "science",
+      "title": "科学与航天",
+      "icon": "moon.stars"
+    },
+    {
+      "id": "health",
+      "title": "健康与医学",
+      "icon": "heart"
+    },
+    {
+      "id": "education",
+      "title": "教育与校园",
+      "icon": "graduationcap",
+      "keywords": [
+        "education",
+        "university",
+        "higher education",
+        "教育"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "federal-register",
+      "name": "Federal Register",
+      "category": "visa",
+      "official": true,
+      "urls": [
+        "https://www.federalregister.gov/api/v1/documents.json?per_page=30&order=newest&conditions%5Bterm%5D=%22F-1%22%20OR%20%22student%20visa%22%20OR%20SEVIS%20OR%20%22H-1B%22",
+        "https://www.federalregister.gov/documents/search.rss?conditions%5Bterm%5D=student%20visa"
+      ],
+      "hosts": [
+        "federalregister.gov"
+      ]
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "category": "ai",
+      "official": true,
+      "urls": [
+        "https://openai.com/news/rss.xml"
+      ],
+      "hosts": [
+        "openai.com"
+      ]
+    },
+    {
+      "id": "google-ai",
+      "name": "Google AI",
+      "category": "ai",
+      "official": true,
+      "urls": [
+        "https://blog.google/technology/ai/rss/"
+      ],
+      "hosts": [
+        "blog.google"
+      ]
+    },
+    {
+      "id": "apple",
+      "name": "Apple Newsroom",
+      "category": "technology",
+      "official": true,
+      "urls": [
+        "https://www.apple.com/newsroom/rss-feed.rss"
+      ],
+      "hosts": [
+        "apple.com"
+      ]
+    },
+    {
+      "id": "un",
+      "name": "联合国正式新闻稿",
+      "category": "world",
+      "official": true,
+      "urls": [
+        "https://press.un.org/en/rss.xml"
+      ],
+      "hosts": [
+        "un.org"
+      ]
+    },
+    {
+      "id": "fed-economy",
+      "name": "Federal Reserve",
+      "category": "economy",
+      "official": true,
+      "urls": [
+        "https://www.federalreserve.gov/feeds/press_all.xml"
+      ],
+      "hosts": [
+        "federalreserve.gov"
+      ]
+    },
+    {
+      "id": "bls",
+      "name": "Bureau of Labor Statistics",
+      "category": "economy",
+      "official": true,
+      "urls": [
+        "https://www.bls.gov/feed/bls_latest.rss"
+      ],
+      "hosts": [
+        "bls.gov"
+      ]
+    },
+    {
+      "id": "sec",
+      "name": "SEC",
+      "category": "markets",
+      "official": true,
+      "urls": [
+        "https://www.sec.gov/news/pressreleases.rss"
+      ],
+      "hosts": [
+        "sec.gov"
+      ]
+    },
+    {
+      "id": "fed-policy",
+      "name": "Federal Reserve Monetary Policy",
+      "category": "markets",
+      "official": true,
+      "urls": [
+        "https://www.federalreserve.gov/feeds/press_monetary.xml"
+      ],
+      "hosts": [
+        "federalreserve.gov"
+      ]
+    },
+    {
+      "id": "cisa",
+      "name": "CISA",
+      "category": "security",
+      "official": true,
+      "urls": [
+        "https://www.cisa.gov/cybersecurity-advisories/all.xml"
+      ],
+      "hosts": [
+        "cisa.gov"
+      ]
+    },
+    {
+      "id": "doe",
+      "name": "US Department of Energy",
+      "category": "energy",
+      "official": true,
+      "urls": [
+        "https://www.energy.gov/rss.xml"
+      ],
+      "hosts": [
+        "energy.gov"
+      ]
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify Newsroom",
+      "category": "entertainment",
+      "official": true,
+      "urls": [
+        "https://newsroom.spotify.com/feed/"
+      ],
+      "hosts": [
+        "newsroom.spotify.com"
+      ]
+    },
+    {
+      "id": "xbox",
+      "name": "Xbox Wire",
+      "category": "gaming",
+      "official": true,
+      "urls": [
+        "https://news.xbox.com/en-us/feed/"
+      ],
+      "hosts": [
+        "news.xbox.com"
+      ]
+    },
+    {
+      "id": "playstation",
+      "name": "PlayStation Blog",
+      "category": "gaming",
+      "official": true,
+      "urls": [
+        "https://blog.playstation.com/feed/"
+      ],
+      "hosts": [
+        "blog.playstation.com"
+      ]
+    },
+    {
+      "id": "mlb",
+      "name": "MLB 官方",
+      "category": "sports",
+      "official": true,
+      "urls": [
+        "https://www.mlb.com/feeds/news/rss.xml"
+      ],
+      "hosts": [
+        "mlb.com"
+      ]
+    },
+    {
+      "id": "nasa",
+      "name": "NASA",
+      "category": "science",
+      "official": true,
+      "urls": [
+        "https://www.nasa.gov/feed/"
+      ],
+      "hosts": [
+        "nasa.gov"
+      ]
+    },
+    {
+      "id": "who",
+      "name": "World Health Organization",
+      "category": "health",
+      "official": true,
+      "urls": [
+        "https://www.who.int/rss-feeds/news-english.xml"
+      ],
+      "hosts": [
+        "who.int"
+      ]
+    },
+    {
+      "id": "arxiv",
+      "name": "arXiv 原创论文 · 预印本（未经同行评审）",
+      "category": "science",
+      "official": true,
+      "urls": [
+        "https://export.arxiv.org/api/query?search_query=cat%3Acs.AI%20OR%20cat%3Aastro-ph&sortBy=submittedDate&sortOrder=descending&max_results=20"
+      ],
+      "hosts": [
+        "arxiv.org"
+      ]
+    },
+    {
+      "id": "state-travel",
+      "name": "美国国务院旅行公告",
+      "category": "travel",
+      "official": true,
+      "urls": [
+        "https://travel.state.gov/_res/rss/TAsTWs.xml"
+      ],
+      "hosts": [
+        "state.gov"
+      ]
+    },
+    {
+      "id": "federal-policy",
+      "name": "Federal Register 政策原文",
+      "category": "politics",
+      "official": true,
+      "urls": [
+        "https://www.federalregister.gov/api/v1/documents.json?per_page=20&order=newest&conditions%5Btype%5D=RULE"
+      ],
+      "hosts": [
+        "federalregister.gov"
+      ]
+    },
+    {
+      "id": "register-business",
+      "name": "Federal Register 商业监管原文",
+      "category": "business",
+      "official": true,
+      "urls": [
+        "https://www.federalregister.gov/api/v1/documents.json?per_page=20&order=newest&conditions%5Bterm%5D=business+OR+corporation"
+      ],
+      "hosts": [
+        "federalregister.gov"
+      ]
+    },
+    {
+      "id": "register-us",
+      "name": "Federal Register 美国官方文件",
+      "category": "us",
+      "official": true,
+      "urls": [
+        "https://www.federalregister.gov/api/v1/documents.json?per_page=20&order=newest&conditions%5Bterm%5D=United+States"
+      ],
+      "hosts": [
+        "federalregister.gov"
+      ]
+    },
+    {
+      "id": "register-china",
+      "name": "Federal Register 中国相关官方文件",
+      "category": "china",
+      "official": true,
+      "urls": [
+        "https://www.federalregister.gov/api/v1/documents.json?per_page=20&order=newest&conditions%5Bterm%5D=China"
+      ],
+      "hosts": [
+        "federalregister.gov"
+      ]
+    }
+  ]
+}
