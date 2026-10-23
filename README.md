@@ -1,11 +1,37 @@
 # 晨间十条 · Morning Ten
 
-Backup and development repository for the Morning Ten macOS news reader.
+一款原生 macOS 新闻阅读器，围绕你关注的主题整理新闻，并提供可追溯的原始来源。当前版本为 **1.3.0**。
 
-## Original version
+## 主要功能
 
-`baseline/MorningTen-1.1.1-original.zip` preserves the installed 1.1.1 application before changes. `baseline/SHA256SUMS` records its checksum. The installed application contains the executable, icon, bundle metadata and signature; original Swift source has not yet been located.
+- **自定义主题**：新增、编辑或删除关注主题，通过关键词筛选相关内容。
+- **原始来源**：阅读机构发布、公司公告和原创论文，支持 Federal Register 公告与 arXiv 论文检索。
+- **来源核验**：检查文章链接、页面状态和标题匹配情况，支持重新验证全部来源或重试单篇文章。
+- **中文阅读**：使用 macOS 系统翻译，并按阅读习惯调整字号。
+- **晨间提醒**：设置提醒时间，支持登录时启动。
 
-## Local data and privacy
+## 系统要求
 
-The repository excludes API keys, credentials, environment files, user preferences, local news cache and personal backups. The app uses its existing bundle identifier `com.morningten.personal`. User data remains local in the existing application support directory. Never upload local backups, Keychain exports, real `.env` files, or user settings.
+- macOS 15 或更新版本
+- Apple Silicon 或 Intel Mac
+
+## 使用方式
+
+1. 打开应用，在 **时间与偏好 → 关注主题** 中设置主题。
+2. 为主题填写名称和检索关键词。多个关键词可用逗号或换行分隔，任一词匹配即可；英文短语按完整短语匹配。中文主题可同时加入英文同义词。
+3. 阅读新闻摘要，并打开原文查看完整内容。
+4. 需要更新链接状态时，点击顶部的 **重新验证来源**，或使用单篇新闻的 **重试来源**。
+
+## 新闻来源与核验
+
+应用优先使用机构原始发布、公司公告和原创论文。无法读取、返回错误页、跳转至首页或无法匹配标题的文章会被移除；没有符合要求的内容时，新闻数量可能少于十条。
+
+来源核验用于确认文章链接和页面内容，不代表对文章中的研究结论进行独立验证。预印本会标注为未经同行评审。
+
+## 项目结构
+
+| 目录 | 内容 |
+| --- | --- |
+| `Sources/` | 应用界面、主题管理、新闻获取与来源核验 |
+| `Resources/` | 应用图标、版本信息与订阅源配置 |
+| `Tests/` | 主题匹配、来源规则和链接核验测试 |
