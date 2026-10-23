@@ -1,0 +1,24 @@
+name: Build Morning Ten
+on:
+  push:
+    branches: [main, improve/news-sources]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build, test and sign app
+        run: bash build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MorningTen-1.3.0-macOS
+          path: |
+            dist/晨间十条.app.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30

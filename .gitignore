@@ -13,6 +13,9 @@
 private/
 private-backup*/
 news.json
+news-before-*.json
+link-health*.json
+translations*.json
 settings.json
 preferences.json
 *.plist.local
@@ -24,3 +27,10 @@ dist/
 .swiftpm/
 node_modules/
 artifacts/
+
+# Local user data and build/package scratch files
+topics*.json
+*.app/
+__MACOSX/
+.DS_Store
+*private-backup*/
