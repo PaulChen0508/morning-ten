@@ -31,9 +31,14 @@ enum DocumentEvidence {
         let words = Set(expected.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count > 2 && !stop.contains($0) })
         guard !words.isEmpty else { return nil }
         let normalizedTitle = title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-        let matches = words.filter { normalizedTitle.contains($0) }.count
+        func containsWord(_ text: String, _ word: String) -> Bool {
+            if NewsText.containsChinese(word) { return text.localizedCaseInsensitiveContains(word) }
+            let pattern = "(?i)(?<![\\p{L}\\p{N}])" + NSRegularExpression.escapedPattern(for: word) + "(?![\\p{L}\\p{N}])"
+            return text.range(of: pattern, options: .regularExpression) != nil
+        }
+        let matches = words.filter { containsWord(normalizedTitle, $0) }.count
         guard matches >= min(2, words.count), Double(matches) / Double(words.count) >= 0.45 else { return nil }
-        let bodyMatches = words.filter { body.localizedCaseInsensitiveContains($0) }.count
+        let bodyMatches = words.filter { containsWord(body, $0) }.count
         guard bodyMatches >= min(2, words.count) else { return nil }
         return String(title.prefix(400))
     }

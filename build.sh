@@ -7,15 +7,20 @@ sdk_path="${MORNINGTEN_SDK:-$(xcrun --sdk macosx --show-sdk-path)}"
 lipo_tool="${MORNINGTEN_LIPO:-$(xcrun -f lipo)}"
 mkdir -p build dist
 common=(-swift-version 5 -parse-as-library -sdk "$sdk_path" -module-cache-path "$project_root/build/module-cache")
-"$compiler" "${common[@]}" Sources/Models.swift Sources/Feeds.swift Sources/Verification.swift Tests/SelfTests.swift -framework PDFKit -o build/MorningTenTests
+"$compiler" "${common[@]}" Sources/Models.swift Sources/Language.swift Sources/Feeds.swift Sources/Verification.swift Tests/SelfTests.swift -framework PDFKit -framework NaturalLanguage -o build/MorningTenTests
 build/MorningTenTests Resources/feeds.json
+"$compiler" "${common[@]}" -D MORNINGTEN_INTERFACE_CHECKS Sources/*.swift Tests/InterfaceChecks.swift \
+  -framework AppKit -framework SwiftUI -framework UserNotifications -framework ServiceManagement -framework Translation -framework PDFKit -framework NaturalLanguage \
+  -o build/MorningTenInterfaceChecks
+build/MorningTenInterfaceChecks Resources/feeds.json
 app_bundle="dist/晨间十条.app"
+rm -rf "$app_bundle"
 mkdir -p "$app_bundle/Contents/MacOS" "$app_bundle/Contents/Resources"
 for architecture in arm64 x86_64; do
   mkdir -p "build/$architecture"
   "$compiler" "${common[@]}" -O -whole-module-optimization -target "$architecture-apple-macos15.0" \
-    Sources/Models.swift Sources/Feeds.swift Sources/Verification.swift Sources/Store.swift Sources/App.swift \
-    -framework AppKit -framework SwiftUI -framework UserNotifications -framework ServiceManagement -framework Translation -framework PDFKit \
+    Sources/Models.swift Sources/Language.swift Sources/Feeds.swift Sources/Verification.swift Sources/Store.swift Sources/App.swift \
+    -framework AppKit -framework SwiftUI -framework UserNotifications -framework ServiceManagement -framework Translation -framework PDFKit -framework NaturalLanguage \
     -o "build/$architecture/MorningTen"
 done
 "$lipo_tool" -create build/arm64/MorningTen build/x86_64/MorningTen -output "$app_bundle/Contents/MacOS/MorningTen"

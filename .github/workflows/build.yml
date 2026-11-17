@@ -16,7 +16,7 @@ jobs:
         run: bash build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: MorningTen-1.3.0-macOS
+          name: MorningTen-1.4.0-macOS
           path: |
             dist/晨间十条.app.zip
             dist/SHA256SUMS

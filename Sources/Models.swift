@@ -91,7 +91,9 @@ struct NewsCache: Codable, Sendable {
 
 struct Preferences: Codable, Equatable {
     var days = 7
-    var chinese = true
+    var language: AppLanguage = .system
+    var translateArticles = true
+    var protectedTerms = ""
     var officialOnly = true
     var fontScale = 1.0
     var morningEnabled = false
@@ -99,6 +101,47 @@ struct Preferences: Codable, Equatable {
     var minute = 0
     var timeZone = TimeZone.current.identifier
     var enabledCategories: [String] = []
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case days, chinese, language, translateArticles, protectedTerms, officialOnly, fontScale, morningEnabled, hour, minute, timeZone, enabledCategories
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let savedDays = try c.decodeIfPresent(Int.self, forKey: .days) ?? 7
+        days = [1, 3, 7, 14, 30].contains(savedDays) ? savedDays : 7
+        if let saved = try c.decodeIfPresent(AppLanguage.self, forKey: .language) { language = saved }
+        else if let legacy = try c.decodeIfPresent(Bool.self, forKey: .chinese) { language = legacy ? .chinese : .english }
+        translateArticles = try c.decodeIfPresent(Bool.self, forKey: .translateArticles) ?? true
+        protectedTerms = String((try c.decodeIfPresent(String.self, forKey: .protectedTerms) ?? "").prefix(8000))
+        officialOnly = true
+        let scale = try c.decodeIfPresent(Double.self, forKey: .fontScale) ?? 1
+        fontScale = scale.isFinite ? min(1.5, max(0.85, scale)) : 1
+        morningEnabled = try c.decodeIfPresent(Bool.self, forKey: .morningEnabled) ?? false
+        hour = min(23, max(0, try c.decodeIfPresent(Int.self, forKey: .hour) ?? 8))
+        minute = min(59, max(0, try c.decodeIfPresent(Int.self, forKey: .minute) ?? 0))
+        let zone = try c.decodeIfPresent(String.self, forKey: .timeZone) ?? TimeZone.current.identifier
+        timeZone = TimeZone(identifier: zone)?.identifier ?? TimeZone.current.identifier
+        var seen: Set<String> = []
+        enabledCategories = (try c.decodeIfPresent([String].self, forKey: .enabledCategories) ?? []).filter { seen.insert($0).inserted }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(days, forKey: .days)
+        try c.encode(language, forKey: .language)
+        try c.encode(translateArticles, forKey: .translateArticles)
+        try c.encode(protectedTerms, forKey: .protectedTerms)
+        try c.encode(true, forKey: .officialOnly)
+        try c.encode(fontScale, forKey: .fontScale)
+        try c.encode(morningEnabled, forKey: .morningEnabled)
+        try c.encode(hour, forKey: .hour)
+        try c.encode(minute, forKey: .minute)
+        try c.encode(timeZone, forKey: .timeZone)
+        try c.encode(enabledCategories, forKey: .enabledCategories)
+    }
 }
 
 enum NewsError: Error { case invalidCatalog, invalidFeed, badResponse, tooLarge }

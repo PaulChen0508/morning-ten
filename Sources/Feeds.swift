@@ -99,7 +99,7 @@ struct NewsHTTP: Sendable {
         config.urlCredentialStorage = nil
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
-        config.httpAdditionalHeaders = ["User-Agent": "MorningTen/1.3 (personal RSS reader)"]
+        config.httpAdditionalHeaders = ["User-Agent": "MorningTen/1.4 (personal RSS reader)"]
         self.session = URLSession(configuration: config)
     }
 

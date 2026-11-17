@@ -9,11 +9,15 @@ import Translation
 final class NewsStore: ObservableObject {
     let catalog: Catalog
     let storage: CacheStorage
+    private let defaults: UserDefaults
     private let http: NewsHTTP
     private let verifier: LinkVerifier
     private let topicStorage: TopicStorage
     private var queuedRefresh = false
     private var rawArticles: [Article] = []
+    private var failedTranslations: Set<String> = []
+    private var unavailableTranslationPairs: Set<String> = []
+    private var activeTranslationID: UUID?
     @Published var categories: [NewsCategory]
     @Published var checkingArticles: Set<String> = []
     @Published var topicError = ""
@@ -38,8 +42,16 @@ final class NewsStore: ObservableObject {
     @Published var preferences: Preferences {
         didSet {
             guard ready else { return }
-            if let data = try? JSONEncoder().encode(preferences) { UserDefaults.standard.set(data, forKey: preferenceKey) }
+            if let data = try? JSONEncoder().encode(preferences) { defaults.set(data, forKey: preferenceKey) }
             translationRevision += 1
+            if oldValue.language != preferences.language || oldValue.translateArticles != preferences.translateArticles || oldValue.protectedTerms != preferences.protectedTerms {
+                failedTranslations = []
+                unavailableTranslationPairs = []
+            }
+            if oldValue.language != preferences.language {
+                NotificationCenter.default.post(name: .morningTenLanguageChanged, object: nil)
+                if preferences.morningEnabled { Task { await updateNotifications() } }
+            }
             if oldValue.days != preferences.days { Task { await refresh() } }
             if oldValue.morningEnabled != preferences.morningEnabled || oldValue.hour != preferences.hour || oldValue.minute != preferences.minute || oldValue.timeZone != preferences.timeZone {
                 Task { await updateNotifications() }
@@ -47,9 +59,10 @@ final class NewsStore: ObservableObject {
         }
     }
 
-    init(catalog: Catalog, storage: CacheStorage) {
+    init(catalog: Catalog, storage: CacheStorage, defaults: UserDefaults = .standard) {
         self.catalog = catalog
         self.storage = storage
+        self.defaults = defaults
         let topics = TopicStorage(url: storage.directory.appendingPathComponent("topics-v3.json"))
         topicStorage = topics
         let loadedTopics = topics.read(defaults: catalog.categories)
@@ -57,7 +70,7 @@ final class NewsStore: ObservableObject {
         let client = NewsHTTP()
         http = client
         verifier = LinkVerifier(http: client, authorities: catalog.sources, cacheURL: storage.directory.appendingPathComponent("link-health-v3.json"))
-        if let data = UserDefaults.standard.data(forKey: "MorningTen.preferences.v2"), let saved = try? JSONDecoder().decode(Preferences.self, from: data) {
+        if let data = defaults.data(forKey: "MorningTen.preferences.v2"), let saved = try? JSONDecoder().decode(Preferences.self, from: data) {
             preferences = saved
         } else {
             var initial = Preferences()
@@ -70,7 +83,7 @@ final class NewsStore: ObservableObject {
             rawArticles = cache.articles
             updatedAt = cache.updatedAt
         }
-        let translationsURL = storage.directory.appendingPathComponent("translations-v2.json")
+        let translationsURL = storage.directory.appendingPathComponent("translations-v3.json")
         if let data = try? Data(contentsOf: translationsURL), let saved = try? JSONDecoder().decode([String: String].self, from: data) { translations = saved }
         ready = true
     }
@@ -78,7 +91,7 @@ final class NewsStore: ObservableObject {
     func start() async {
         let pending = await UNUserNotificationCenter.current().pendingNotificationRequests()
         legacyNotificationIDs = pending.filter { $0.identifier != "morning-ten.daily" }.map(\.identifier)
-        if UserDefaults.standard.data(forKey: preferenceKey) == nil,
+        if defaults.data(forKey: preferenceKey) == nil,
            let trigger = pending.compactMap({ $0.trigger as? UNCalendarNotificationTrigger }).first {
             ready = false
             preferences.morningEnabled = true
@@ -86,7 +99,7 @@ final class NewsStore: ObservableObject {
             preferences.minute = trigger.dateComponents.minute ?? 0
             preferences.timeZone = trigger.dateComponents.timeZone?.identifier ?? TimeZone.current.identifier
             ready = true
-            if let data = try? JSONEncoder().encode(preferences) { UserDefaults.standard.set(data, forKey: preferenceKey) }
+            if let data = try? JSONEncoder().encode(preferences) { defaults.set(data, forKey: preferenceKey) }
         }
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -98,10 +111,16 @@ final class NewsStore: ObservableObject {
     }
 
     var filtered: [Article] {
+        eligible.filter { article in
+            search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                [article.title, article.summary, article.source, displayTitle(article), displaySummary(article)].joined(separator: " ").localizedCaseInsensitiveContains(search.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    private var eligible: [Article] {
         let enabled = Set(preferences.enabledCategories)
         return ArticleSelection.recent(articles, days: preferences.days).filter {
             enabled.contains($0.category) && ResearchPolicy.permits($0) && $0.verifiedAt != nil
-                && (search.isEmpty || ($0.title + " " + $0.summary + " " + $0.source).localizedCaseInsensitiveContains(search))
         }
     }
 
@@ -111,13 +130,22 @@ final class NewsStore: ObservableObject {
     }
 
     var selectedTitle: String {
-        if selection == "daily" { return "每日精选" }
-        if selection == "settings" { return "时间与偏好" }
-        if selection == "sources" { return "来源与状态" }
-        return categories.first { $0.id == selection }?.title ?? "新闻"
+        if selection == "daily" { return text("每日精选", "Today") }
+        if selection == "settings" { return text("设置", "Settings") }
+        if selection == "sources" { return text("来源", "Sources") }
+        return categoryTitle(selection)
     }
 
-    func categoryTitle(_ id: String) -> String { categories.first { $0.id == id }?.title ?? id }
+    var language: AppLanguage { preferences.language.resolved }
+    var locale: Locale { language.locale }
+    func text(_ chinese: String, _ english: String) -> String { language.text(chinese, english) }
+    func categoryTitle(_ id: String) -> String {
+        guard let topic = categories.first(where: { $0.id == id }) else { return text("新闻", "News") }
+        if language == .english, !topic.isCustom, catalog.categories.first(where: { $0.id == id })?.title == topic.title {
+            return PresetTitles.english[id] ?? topic.title
+        }
+        return topic.title
+    }
 
     private func searchSources() -> [FeedSource] {
         var result: [FeedSource] = []
@@ -138,7 +166,7 @@ final class NewsStore: ObservableObject {
     }
 
     func refresh(force: Bool = false) async {
-        guard !refreshing else { queuedRefresh = true; return }
+        guard !refreshing, checkingArticles.isEmpty else { queuedRefresh = true; return }
         refreshing = true
         phase = force ? "正在重新连接并验证原文…" : "正在更新一手来源…"
         defer {
@@ -147,8 +175,14 @@ final class NewsStore: ObservableObject {
             if queuedRefresh { queuedRefresh = false; Task { await refresh(force: true) } }
         }
         let days = preferences.days
+        guard !preferences.enabledCategories.isEmpty else {
+            articles = []; sources = []; updatedAt = Date(); offline = false
+            localMessage = "请先添加或开启一个关注主题。"
+            return
+        }
         let loader = FeedLoader(http: http)
-        let feeds = catalog.sources.filter(\.official) + searchSources()
+        let hasKeywordTopics = categories.contains { preferences.enabledCategories.contains($0.id) && !$0.searchTerms.isEmpty }
+        let feeds = catalog.sources.filter { $0.official && (hasKeywordTopics || preferences.enabledCategories.contains($0.category)) } + searchSources()
         let results = await limitedMap(feeds, limit: 6) { await loader.load($0, days: days) }.compactMap { $0 }
         phase = "正在读取原文并核对文章标题…"
         // Keep recent cached candidates for retries, but publish only this round's verified documents.
@@ -157,7 +191,9 @@ final class NewsStore: ObservableObject {
             .filter { ResearchPolicy.permits($0) && seen.insert($0.url).inserted }
             .filter { article in categories.contains { preferences.enabledCategories.contains($0.id) && $0.matches(article) } }
         let checker = verifier
-        let checked = await limitedMap(candidates, limit: 8) { article in await checker.checked(article, force: true) }.compactMap { $0 }
+        let verified = await limitedMap(candidates, limit: 8) { article in await checker.checked(article, force: force) }.compactMap { $0 }
+        var canonicalLinks: Set<String> = []
+        let checked = verified.sorted { $0.publishedAt > $1.publishedAt }.filter { canonicalLinks.insert($0.url).inserted }
         rawArticles = checked
         articles = categories.flatMap { topic in
             checked.filter { topic.matches($0) }.map { article in var copy = article; copy.category = topic.id; return copy }
@@ -171,6 +207,7 @@ final class NewsStore: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         updatedAt = Date()
         offline = results.isEmpty
+        failedTranslations = []
         translationRevision += 1
         saveCurrent()
         await verifier.save()
@@ -185,7 +222,10 @@ final class NewsStore: ObservableObject {
     func recheck(_ article: Article, open: Bool = false) async {
         guard !refreshing, !checkingArticles.contains(article.url) else { return }
         checkingArticles.insert(article.url)
-        defer { checkingArticles.remove(article.url) }
+        defer {
+            checkingArticles.remove(article.url)
+            if checkingArticles.isEmpty, queuedRefresh { queuedRefresh = false; Task { await refresh(force: true) } }
+        }
         let checked = await verifier.checked(article, force: true)
         if let checked {
             for index in articles.indices where articles[index].url == article.url {
@@ -255,36 +295,85 @@ final class NewsStore: ObservableObject {
         if enabled { Task { await refresh() } }
     }
 
+    private func translationKey(_ article: Article, field: String, content: String, target: String? = nil) -> String {
+        TranslationText.cacheKey(url: article.url, field: field, text: content, target: target ?? language.rawValue, glossary: preferences.protectedTerms)
+    }
+
     func displayTitle(_ article: Article) -> String {
-        preferences.chinese ? translations[article.url + "|title"] ?? article.title : article.title
+        preferences.translateArticles ? translations[translationKey(article, field: "title", content: article.title)] ?? article.title : article.title
     }
 
     func displaySummary(_ article: Article) -> String {
-        preferences.chinese ? translations[article.url + "|summary"] ?? article.summary : article.summary
+        preferences.translateArticles ? translations[translationKey(article, field: "summary", content: article.summary)] ?? article.summary : article.summary
     }
 
-    func translationRequests() -> [TranslationSession.Request] {
-        guard preferences.chinese else { return [] }
-        return visible.prefix(20).flatMap { article -> [TranslationSession.Request] in
-            [("title", article.title), ("summary", article.summary)].compactMap { field, text in
-                let key = article.url + "|" + field
-                guard !text.isEmpty, !NewsText.containsChinese(text), translations[key] == nil else { return nil }
-                return TranslationSession.Request(sourceText: text, clientIdentifier: key)
+    func nextTranslationBatch() -> TranslationBatch? {
+        guard preferences.translateArticles, selection != "settings", selection != "sources" else { return nil }
+        let scope = selection == "daily" ? eligible : eligible.filter { $0.category == selection }
+        let candidates = search.isEmpty && selection == "daily" ? ArticleSelection.daily(scope) : Array(scope.prefix(search.isEmpty ? 40 : 160))
+        var pending: [TranslationWork] = []
+        var seen: Set<String> = []
+        for article in candidates {
+            for (field, content) in [("title", article.title), ("summary", article.summary)] where !content.isEmpty {
+                let key = translationKey(article, field: field, content: content)
+                guard translations[key] == nil, !failedTranslations.contains(key), seen.insert(key).inserted else { continue }
+                let source = TranslationText.language(of: content)
+                guard source != language.rawValue, !unavailableTranslationPairs.contains(source + "|" + language.rawValue) else { continue }
+                pending.append(TranslationWork(key: key, sourceLanguage: source, targetLanguage: language.rawValue, text: ProtectedText(content, additionalTerms: preferences.protectedTerms)))
             }
         }
+        guard let first = pending.first else { return nil }
+        return TranslationBatch(sourceLanguage: first.sourceLanguage, targetLanguage: first.targetLanguage, items: Array(pending.filter { $0.sourceLanguage == first.sourceLanguage }.prefix(20)))
     }
 
-    func acceptTranslations(_ responses: [TranslationSession.Response]) {
-        for response in responses {
-            if let key = response.clientIdentifier { translations[key] = response.targetText }
+    var hasTranslationFailures: Bool { failedTranslations.contains { $0.hasPrefix(language.rawValue + "|") } || unavailableTranslationPairs.contains { $0.hasSuffix("|" + language.rawValue) } }
+    func retryTranslations() { failedTranslations = []; unavailableTranslationPairs = []; translationRevision += 1 }
+    func beginTranslation(_ batch: TranslationBatch) { activeTranslationID = batch.id; translating = true }
+    func finishTranslation(_ batch: TranslationBatch) {
+        guard activeTranslationID == batch.id else { return }
+        activeTranslationID = nil; translating = false
+    }
+
+    func acceptTranslations(_ responses: [TranslationSession.Response], batch: TranslationBatch) {
+        let byKey = Dictionary(responses.compactMap { response in response.clientIdentifier.map { ($0, response.targetText) } }, uniquingKeysWith: { _, newest in newest })
+        acceptTranslationResults(byKey, batch: batch)
+    }
+
+    func acceptTranslationResults(_ byKey: [String: String], batch: TranslationBatch) {
+        for work in batch.items {
+            if let response = byKey[work.key], let restored = work.text.restore(response) { translations[work.key] = restored }
+            else { failedTranslations.insert(work.key) }
         }
-        let active = Set(articles.flatMap { [$0.url + "|title", $0.url + "|summary"] })
+        let active = Set(articles.flatMap { article in [AppLanguage.chinese, .english].flatMap { target in
+            [translationKey(article, field: "title", content: article.title, target: target.rawValue), translationKey(article, field: "summary", content: article.summary, target: target.rawValue)]
+        } })
         translations = translations.filter { active.contains($0.key) }
-        let url = storage.directory.appendingPathComponent("translations-v2.json")
+        let url = storage.directory.appendingPathComponent("translations-v3.json")
         if let data = try? JSONEncoder().encode(translations) {
             try? data.write(to: url, options: .atomic)
             try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         }
+        translationRevision += 1
+    }
+
+    func translationFailed(_ batch: TranslationBatch) {
+        unavailableTranslationPairs.insert(batch.sourceLanguage + "|" + batch.targetLanguage)
+        failedTranslations.formUnion(batch.items.map(\.key))
+        translationRevision += 1
+    }
+
+    var notice: String { localizedStatus(localMessage) }
+    var phaseLabel: String { localizedStatus(phase) }
+    var topicErrorLabel: String { localizedStatus(topicError) }
+    private func localizedStatus(_ value: String) -> String {
+        guard language == .english else { return value }
+        return [
+            "正在重新连接并验证原文…": "Reconnecting to original sources…", "正在更新一手来源…": "Updating primary sources…", "正在读取原文并核对文章标题…": "Reading originals and checking headlines…",
+            "来源重新验证完成，已移除无法读取或无法核对的新闻。": "Sources checked. Unavailable articles have been removed.", "当前新闻可以阅读，缓存暂未保存。": "News is available, but the cache could not be saved.",
+            "原文可以访问，已重新验证。": "Original source verified.", "这条新闻的原文无法读取或核对，已从列表移除。": "The original could not be verified. This article was removed.", "请先添加或开启一个关注主题。": "Add or enable a topic to get started.",
+            "请填写主题名称（最多 80 字）及有效关键词。": "Enter a topic name (up to 80 characters) and valid keywords.", "已有同名主题，请换一个名称。": "A topic with this name already exists.", "新增主题至少需要一个检索关键词。": "Add at least one search keyword.", "主题未能保存，请重试。": "The topic could not be saved. Try again.", "主题未能删除，请重试。": "The topic could not be deleted. Try again.",
+            "请在系统设置中允许晨间十条发送通知。": "Allow Morning Ten notifications in System Settings.", "晨间通知已更新。": "Your morning reminder has been updated.", "通知设置暂未保存，请稍后再试。": "Reminder settings could not be saved. Try again.", "请先允许通知。": "Allow notifications first.", "测试通知暂未发送。": "The test notification could not be sent.", "请在系统设置的登录项中确认。": "Confirm Morning Ten in System Settings > Login Items.", "可在系统设置的登录项中管理晨间十条。": "Manage Morning Ten in System Settings > Login Items."
+        ][value] ?? value
     }
 
     func updateNotifications() async {
@@ -298,8 +387,8 @@ final class NewsStore: ObservableObject {
                 components.minute = preferences.minute
                 components.timeZone = TimeZone(identifier: preferences.timeZone) ?? .current
                 let content = UNMutableNotificationContent()
-                content.title = "晨间十条"
-                content.body = "一杯咖啡的时间，看看你关心的世界。"
+                content.title = text("晨间十条", "Morning Ten")
+                content.body = text("看看今天值得关注的世界。", "Your daily perspective is ready.")
                 content.sound = .default
                 center.removePendingNotificationRequests(withIdentifiers: legacyNotificationIDs + ["morning-ten.daily"])
                 let request = UNNotificationRequest(identifier: "morning-ten.daily", content: content, trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true))
@@ -318,8 +407,8 @@ final class NewsStore: ObservableObject {
         do {
             guard try await center.requestAuthorization(options: [.alert, .sound]) else { localMessage = "请先允许通知。"; return }
             let content = UNMutableNotificationContent()
-            content.title = "晨间十条 · 测试通知"
-            content.body = "通知已准备好。"
+            content.title = text("晨间十条 · 测试通知", "Morning Ten · Test reminder")
+            content.body = text("通知已准备好。", "Your reminders are ready.")
             content.sound = .default
             try await center.add(UNNotificationRequest(identifier: "morning-ten.test", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)))
         } catch { localMessage = "测试通知暂未发送。" }
